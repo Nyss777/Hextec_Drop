@@ -6,30 +6,30 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <locale.h>
 
 #define SCREEN_W 500
 #define SCREEN_H 600
 #define PLATFORM_W 120
-#define PLATFORM_H 40
+#define PLATFORM_H 200
 #define STONE_W 30
 #define STONE_H 30
 #define MAX_STONES 10
-#define FPS 60 // Frame rate
+#define FPS 60
+#define FONTSIZE 20
 
-// Estrutura da plataforma
 typedef struct {
-    float x, y;             // Posição da plataforma
-    ALLEGRO_BITMAP *sprite; // Imagem da plataforma
-} Plataforma;
+    float x, y;             // PosiÃ§Ã£o
+    ALLEGRO_BITMAP *sprite; // Imagem do professor
+} Professor;
 
-// Estrutura das pedras
 typedef struct {
-    float x, y;             // Posição da pedra
+    float x, y;             // PosiÃ§Ã£o
     ALLEGRO_BITMAP *sprite; // Imagem da pedra
-    bool active;            // Se a pedra está ativa ou não
+    bool active;            // Se a pedra estÃ¡ ativa ou nÃ£o
 } Pedra;
 
-// Função para verificar erros de inicialização
+// Funcao para verficar erros de iniciaizaÃ§Ã£o
 void error_h(bool test, const char *description)
 {
     if (test) return;
@@ -38,164 +38,153 @@ void error_h(bool test, const char *description)
     exit(1);
 }
 
-// Função para verificar colisão entre a plataforma e a pedra
-bool verifica_colisao(Plataforma *plataforma, Pedra *pedra) {
-    return (plataforma->x < pedra->x + STONE_W && plataforma->x + PLATFORM_W > pedra->x &&
-            plataforma->y < pedra->y + STONE_H && plataforma->y + PLATFORM_H > pedra->y);
+int check_speed(int n, int v, int p){
+    float msr = p/10;
+    if (n != 0 && n < (v - msr)){
+        return -v;
+    }
+    else if (n != 0 && n > (v + msr)){
+        return v;
+    }
+        return n;
+    }
+
+bool verifica_colisao(Professor *professor, Pedra *pedra) {
+    return (professor->x < pedra->x + STONE_W && professor->x + PLATFORM_W > pedra->x &&
+            professor->y < pedra->y + STONE_H && professor->y + PLATFORM_H > pedra->y);
 }
 
-// Função principal
 int main() {
-    // Variável de delay entre os spawns das pedras
+    //delay entre os spawns das pedra
     float SPAWN_DELAY = 0.9;
-    // Carregando a inicialização do Allegro
-    if (!al_init()) {
-        error_h(false, "Allegro");
-    }
-    // Carregando o teclado
-    if (!al_install_keyboard()) {
-        error_h(false, "Keyboard");
-    }
-    // Carregando a importação de imagens para os sprites da plataforma e das pedras e do background
-    if (!al_init_image_addon()) {
-        error_h(false, "Image Addon");
-    }
-    // Carregando a tela do display
+
+    error_h(al_init(), "Allegro");
+    error_h(al_install_keyboard(), "Keyboard");
+    error_h(al_init_image_addon(), "Image Addon");
+
+    setlocale(LC_ALL, "portuguese");
+    al_init_font_addon();
+    al_init_ttf_addon();
+
     ALLEGRO_DISPLAY *display = al_create_display(SCREEN_W, SCREEN_H);
-    if (!display) {
-        error_h(false, "Display");
-    }
-    // Carregando o timer 1/60
     ALLEGRO_TIMER *timer = al_create_timer(1.0 / FPS);
-    if (!timer) {
-        error_h(false, "Timer");
-    }
-    // Carregando o background
     ALLEGRO_BITMAP *background = al_load_bitmap("imagens/bg.jpg");
-    if (!background) {
-        error_h(false, "Imagem do Background");
-    }
-    // Carregando o ttf para fontes de maior qualidade e para aumentar o tamanho das letras
-    if (!al_init_ttf_addon()) {
-        error_h(false, "TTF Addon");
-    }
 
-    if (!al_install_audio()) {
-        error_h(false, "Audio Addon");
-    }
 
-    if (!al_init_acodec_addon()) {
-        error_h(false, "Audio Codec Addon");
-    }
+    error_h(display, "Display");
+    error_h(timer, "Timer");
+    error_h(background, "Imagem do Background");
+    error_h(al_install_audio(), "Audio Addon");
+    error_h(al_init_acodec_addon(), "Audio Codec Addon");
+    error_h(al_reserve_samples(3), "Reserva de Samples");
 
-    if (!al_reserve_samples(1)) {
-        error_h(false, "Reserva de Samples");
-    }
+    ALLEGRO_SAMPLE *musica = al_load_sample("imagens/bg_music.wav");
 
-    ALLEGRO_SAMPLE_INSTANCE *musica = al_load_sample("imagens/bg_music.wav");
-    if (!musica) {
-        error_h(false, "Musica de Fundo");
-    }
+    ALLEGRO_SAMPLE *sompedra = al_load_sample("imagens/stone.wav");
 
-    ALLEGRO_FONT *fonte = al_create_builtin_font();
-    if (!fonte) {
-        error_h(false, "Fonte padrão");
-    }
-    // Criação a fila de eventos
+    ALLEGRO_SAMPLE *sompowerup = al_load_sample("imagens/powerup.wav");
+
+    ALLEGRO_FONT *fonte = al_load_font("fonts/FONT.ttf", FONTSIZE, 0);
+
+    error_h(musica, "Musica de Fundo");
+    error_h(sompedra, "som de coletar pedra");
+    error_h(sompowerup, "som de pontuaÃ§Ã£o atingida");
+    error_h(fonte, "Fonte padrÃ£o");
+
+    // CriaÃ§Ã£o a fila de eventos
     ALLEGRO_EVENT_QUEUE *queue = al_create_event_queue();
     al_register_event_source(queue, al_get_display_event_source(display));
     al_register_event_source(queue, al_get_timer_event_source(timer));
     al_register_event_source(queue, al_get_keyboard_event_source());
 
-    // Inicialização da plataforma
-    Plataforma plataforma;
-    plataforma.x = SCREEN_W / 2 - 50; // Posição inicial horizontal
-    plataforma.y = SCREEN_H - 150;     // Posição inicial vertical
-    plataforma.sprite = al_load_bitmap("imagens/professor.png"); // Carrega o sprite
-    if (!plataforma.sprite) {
-        error_h(false, "Imagem da Plataforma");
-    }
+    // InicializaÃ§Ã£o do professor
+    Professor professor;
+    professor.x = SCREEN_W / 2 - 50; // PosiÃ§Ã£o inicial horizontal
+    professor.y = SCREEN_H - 150;     // PosiÃ§Ã£o inicial vertical
+    professor.sprite = al_load_bitmap("imagens/professor.png"); // Carrega o sprite
+    error_h(professor.sprite, "Imagem da Professor");
 
-    // Inicialização das pedras
+    // InicializaÃ§Ã£o das pedras
     Pedra pedras[MAX_STONES];
-    srand(time(NULL)); // Inicializa a semente para aleatoriedade
+    srand(time(NULL)); // Inicializa a semente (KKKK) para aleatoriedade
     for (int i = 0; i < MAX_STONES; i++) {
-        pedras[i].x = -STONE_W;  // Começam fora da tela (acima)
-        pedras[i].y = -STONE_H;  // Começam fora da tela
-        pedras[i].active = false; // Inicialmente inativas
-        pedras[i].sprite = al_load_bitmap("imagens/pedra.png"); // Carrega o sprite da pedra
-        if (!pedras[i].sprite) {
-            error_h(false, "Imagem da Pedra");
-        }
+        pedras[i].x = -STONE_W;
+        pedras[i].y = -STONE_H;
+        pedras[i].active = false;
+        pedras[i].sprite = al_load_bitmap("imagens/pedra.png");
+        error_h(pedras[i].sprite, "Imagem da Pedra");
     }
 
-    // Variáveis principais
+    // VariÃ¡veis principais
     bool running = true, redraw = true;
 
-    float velocidadePlataforma = 0;
-    float incrementoVelocidadePlataforma = 6;
+    float velocidadeProfessor = 0;
+    float incrementoVelocidadeProfessor = 6;
     float velocidadePedra = 4;
     int pontuacao = 0;
     int pontuacaoRequerida = 10;
-    float tempo_ultimo_spawn = 0; // Armazena o tempo desde o último spawn
+    float tempo_ultimo_spawn = 0; // Armazena o tempo desde o Ãºltimo spawn
 
     // Inicia o timer
     al_start_timer(timer);
 
-    al_play_sample(musica, 1.0, 0.0, 1.0, ALLEGRO_PLAYMODE_ONCE, NULL);
+    al_play_sample(musica, 0.3, 0.0, 1.0, ALLEGRO_PLAYMODE_LOOP, NULL);
 
 
     // Loop principal
     while (running) {
         ALLEGRO_EVENT event;
         al_wait_for_event(queue, &event);
-
         if (event.type == ALLEGRO_EVENT_TIMER) {
-            tempo_ultimo_spawn += 1.0 / FPS;  // Incrementa o tempo a cada quadro
+            tempo_ultimo_spawn += 1.0 / FPS;  // Incrementa o tempo ???
 
-            // Verifica se é hora de spawnar uma nova pedra
+            // Verifica se Ã© hora de spawnar uma nova pedra
             if (tempo_ultimo_spawn >= SPAWN_DELAY) {
                 for (int i = 0; i < MAX_STONES; i++) {
                     if (!pedras[i].active) {
-                        pedras[i].x = rand() % (SCREEN_W - STONE_W);  // Posição aleatória
-                        pedras[i].y = -STONE_H;  // Começa fora da tela, no topo
+                        pedras[i].x = rand() % (SCREEN_W - STONE_W);  // PosiÃ§Ã£o aleatoria
+                        pedras[i].y = -STONE_H;  // ComeÃ§a fora da tela, no topo
                         pedras[i].active = true;  // Marca como ativa
                         break; // Spawnou uma pedra, sai do loop
                     }
                 }
-                tempo_ultimo_spawn = 0; // Reseta o tempo
+                tempo_ultimo_spawn = 0; // Reseta o spaw
             }
 
-            // Atualiza a posição das pedras
+            // Atualiza  a posiÃ§Ã£o das pedras
             for (int i = 0; i < MAX_STONES; i++) {
                 if (pedras[i].active) {
                     pedras[i].y += velocidadePedra; // As pedras caem para baixo
 
-                    // Verifica se a pedra colidiu com a plataforma
-                    if (verifica_colisao(&plataforma, &pedras[i])) {
+                    // Verifica colisÃ£o
+                    if (verifica_colisao(&professor, &pedras[i])) {
                         pedras[i].active = false; // Desativa a pedra
                         pontuacao++;
+                        al_play_sample(sompedra, 0.8, 0.0, 1.0, ALLEGRO_PLAYMODE_ONCE, NULL);
 
                         if (pontuacao == pontuacaoRequerida) {
-                            incrementoVelocidadePlataforma ++;
+                            incrementoVelocidadeProfessor ++;
+                            velocidadeProfessor = 0;
                             velocidadePedra += 0.5;
                             pontuacaoRequerida += 10;
                             SPAWN_DELAY -= 0.05;
+                            al_play_sample(sompowerup, 0.3, 0.0, 1.0, ALLEGRO_PLAYMODE_ONCE, NULL);
+
                         }
                     }
 
-                    // Se a pedra cair no chão, ela reinicia no topo
+                    // Se a pedra cair no chÃ£o, ela volta
                     if (pedras[i].y > SCREEN_H) {
                         running = false;
-                        pedras[i].active = false; // Desativa a pedra
+                        pedras[i].active = false; // Mataa a pedra
                     }
                 }
             }
 
-            plataforma.x += velocidadePlataforma;
-            // Limita a plataforma dentro da tela
-            if (plataforma.x < 0) plataforma.x = 0;
-            if (plataforma.x > SCREEN_W - PLATFORM_W) plataforma.x = SCREEN_W - PLATFORM_W;
+            professor.x += check_speed(velocidadeProfessor, incrementoVelocidadeProfessor, pontuacao);
+            // Limita a professor dentro da tela
+            if (professor.x < 1) professor.x = 2;
+            if (professor.x > SCREEN_W - PLATFORM_W - 1) professor.x = SCREEN_W - PLATFORM_W -6;
 
             redraw = true;
         }
@@ -203,32 +192,33 @@ int main() {
             // Fecha a janela
             running = false;
         }
-        else if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
-            // Movimenta a plataforma com as setas
-            if (event.keyboard.keycode == ALLEGRO_KEY_LEFT) {
-                velocidadePlataforma = -incrementoVelocidadePlataforma; // Altera velocidade pra ser negativa
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
-                velocidadePlataforma = incrementoVelocidadePlataforma; // Altera velocidade pra ser positiva
-            }
+else if (event.type == ALLEGRO_EVENT_KEY_DOWN) {
+    if (event.keyboard.keycode == ALLEGRO_KEY_LEFT) {
+        velocidadeProfessor -= incrementoVelocidadeProfessor;
         }
-        else if (event.type == ALLEGRO_EVENT_KEY_UP) {
-            // Quando uma tecla for solta, zera a velocidade
-            if (event.keyboard.keycode == ALLEGRO_KEY_LEFT || event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
-                velocidadePlataforma = 0; // Zera a velocidade
-            }
-        }
+        else if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
+        velocidadeProfessor += incrementoVelocidadeProfessor;
+    }
+}
+
+else if (event.type == ALLEGRO_EVENT_KEY_UP) {
+    if (event.keyboard.keycode == ALLEGRO_KEY_LEFT) {
+        velocidadeProfessor += incrementoVelocidadeProfessor;
+
+    }  if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
+            velocidadeProfessor -=incrementoVelocidadeProfessor;
+
+    }
+}
+
+
 
         if (redraw && al_is_event_queue_empty(queue)) {
 
             redraw = false;
 
-            al_clear_to_color(al_map_rgb(0, 0, 0)); // Limpa a tela com cor preta
-
-            // Desenhe o background
             al_draw_bitmap(background, 0, 0, 0);
-
-            // Desenha a plataforma
-            al_draw_bitmap(plataforma.sprite, plataforma.x, plataforma.y, 0);
+            al_draw_bitmap(professor.sprite, professor.x, professor.y, 0);
 
             // Desenha as pedras
             for (int i = 0; i < MAX_STONES; i++) {
@@ -236,15 +226,14 @@ int main() {
                     al_draw_bitmap(pedras[i].sprite, pedras[i].x, pedras[i].y, 0);
                 }
             }
-            // DESENHA A LABEL DE TEXTO
-            al_draw_textf(fonte, al_map_rgb(255, 255, 255), 10, 10, 0, "Pontuacao: %d", pontuacao);
+            // desenha texto
+            al_draw_textf(fonte, al_map_rgb(255, 255, 255), 10, 10, 0, "SCORE: %d", pontuacao);
 
             al_flip_display(); // ATUALIZA A TELA
         }
     }
 
-    // Libera recursos
-    al_destroy_bitmap(plataforma.sprite);
+    al_destroy_bitmap(professor.sprite);
     al_destroy_sample(musica);
     al_uninstall_audio();
     for (int i = 0; i < MAX_STONES; i++) {
@@ -255,6 +244,6 @@ int main() {
     al_destroy_display(display);
     al_destroy_timer(timer);
     al_destroy_event_queue(queue);
-
+    printf("SCORE: %d", pontuacao);
     return 0;
 }
