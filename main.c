@@ -3,6 +3,8 @@
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_audio.h>
 #include <allegro5/allegro_acodec.h>
+#include <allegro5/allegro_font.h>
+#include <allegro5/allegro_ttf.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -19,17 +21,17 @@
 #define FONTSIZE 20
 
 typedef struct {
-    float x, y;             // Posi√ß√£o
+    float x, y;             // PosiÁ„o
     ALLEGRO_BITMAP *sprite; // Imagem do professor
 } Professor;
 
 typedef struct {
-    float x, y;             // Posi√ß√£o
+    float x, y;             // PosiÁ„o
     ALLEGRO_BITMAP *sprite; // Imagem da pedra
-    bool active;            // Se a pedra est√° ativa ou n√£o
+    bool active;            // Se a pedra est· ativa ou n„o
 } Pedra;
 
-// Funcao para verficar erros de iniciaiza√ß√£o
+// Funcao para verficar erros de iniciaizaÁ„o
 void error_h(bool test, const char *description)
 {
     if (test) return;
@@ -38,16 +40,6 @@ void error_h(bool test, const char *description)
     exit(1);
 }
 
-int check_speed(int n, int v, int p){
-    float msr = p/10;
-    if (n != 0 && n < (v - msr)){
-        return -v;
-    }
-    else if (n != 0 && n > (v + msr)){
-        return v;
-    }
-        return n;
-    }
 
 bool verifica_colisao(Professor *professor, Pedra *pedra) {
     return (professor->x < pedra->x + STONE_W && professor->x + PLATFORM_W > pedra->x &&
@@ -88,23 +80,23 @@ int main() {
 
     error_h(musica, "Musica de Fundo");
     error_h(sompedra, "som de coletar pedra");
-    error_h(sompowerup, "som de pontua√ß√£o atingida");
-    error_h(fonte, "Fonte padr√£o");
+    error_h(sompowerup, "som de pontuaÁ„o atingida");
+    error_h(fonte, "Fonte padr„o");
 
-    // Cria√ß√£o a fila de eventos
+    // criaÁ„o a fila de eventos
     ALLEGRO_EVENT_QUEUE *queue = al_create_event_queue();
     al_register_event_source(queue, al_get_display_event_source(display));
     al_register_event_source(queue, al_get_timer_event_source(timer));
     al_register_event_source(queue, al_get_keyboard_event_source());
 
-    // Inicializa√ß√£o do professor
+    // inicializaÁ„o do professor
     Professor professor;
-    professor.x = SCREEN_W / 2 - 50; // Posi√ß√£o inicial horizontal
-    professor.y = SCREEN_H - 150;     // Posi√ß√£o inicial vertical
+    professor.x = SCREEN_W / 2 - 50; // PosiÁ„o inicial horizontal
+    professor.y = SCREEN_H - 150;     // PosiÁ„o inicial vertical
     professor.sprite = al_load_bitmap("imagens/professor.png"); // Carrega o sprite
     error_h(professor.sprite, "Imagem da Professor");
 
-    // Inicializa√ß√£o das pedras
+    // InicializaÁ„o das pedras
     Pedra pedras[MAX_STONES];
     srand(time(NULL)); // Inicializa a semente (KKKK) para aleatoriedade
     for (int i = 0; i < MAX_STONES; i++) {
@@ -115,7 +107,7 @@ int main() {
         error_h(pedras[i].sprite, "Imagem da Pedra");
     }
 
-    // Vari√°veis principais
+    // Vari·veis principais
     bool running = true, redraw = true;
 
     float velocidadeProfessor = 0;
@@ -123,7 +115,9 @@ int main() {
     float velocidadePedra = 4;
     int pontuacao = 0;
     int pontuacaoRequerida = 10;
-    float tempo_ultimo_spawn = 0; // Armazena o tempo desde o √∫ltimo spawn
+    float tempo_ultimo_spawn = 0; // Armazena o tempo desde o ˙ltimo spawn
+    bool teclaEsquerdaPressionada = false;
+    bool teclaDireitaPressionada = false;
 
     // Inicia o timer
     al_start_timer(timer);
@@ -138,12 +132,12 @@ int main() {
         if (event.type == ALLEGRO_EVENT_TIMER) {
             tempo_ultimo_spawn += 1.0 / FPS;  // Incrementa o tempo ???
 
-            // Verifica se √© hora de spawnar uma nova pedra
+            // Verifica se È hora de spawnar uma nova pedra
             if (tempo_ultimo_spawn >= SPAWN_DELAY) {
                 for (int i = 0; i < MAX_STONES; i++) {
                     if (!pedras[i].active) {
-                        pedras[i].x = rand() % (SCREEN_W - STONE_W);  // Posi√ß√£o aleatoria
-                        pedras[i].y = -STONE_H;  // Come√ßa fora da tela, no topo
+                        pedras[i].x = rand() % (SCREEN_W - STONE_W);  // PosiÁ„o aleatoria
+                        pedras[i].y = -STONE_H;  // ComeÁa fora da tela, no topo
                         pedras[i].active = true;  // Marca como ativa
                         break; // Spawnou uma pedra, sai do loop
                     }
@@ -151,12 +145,12 @@ int main() {
                 tempo_ultimo_spawn = 0; // Reseta o spaw
             }
 
-            // Atualiza  a posi√ß√£o das pedras
+            // Atualiza  a posiÁ„o das pedras
             for (int i = 0; i < MAX_STONES; i++) {
                 if (pedras[i].active) {
                     pedras[i].y += velocidadePedra; // As pedras caem para baixo
 
-                    // Verifica colis√£o
+                    // Verifica colis„o
                     if (verifica_colisao(&professor, &pedras[i])) {
                         pedras[i].active = false; // Desativa a pedra
                         pontuacao++;
@@ -164,7 +158,6 @@ int main() {
 
                         if (pontuacao == pontuacaoRequerida) {
                             incrementoVelocidadeProfessor ++;
-                            velocidadeProfessor = 0;
                             velocidadePedra += 0.5;
                             pontuacaoRequerida += 10;
                             SPAWN_DELAY -= 0.05;
@@ -173,7 +166,7 @@ int main() {
                         }
                     }
 
-                    // Se a pedra cair no ch√£o, ela volta
+                    // Se a pedra cair no ch„o, ela volta
                     if (pedras[i].y > SCREEN_H) {
                         running = false;
                         pedras[i].active = false; // Mataa a pedra
@@ -181,7 +174,7 @@ int main() {
                 }
             }
 
-            professor.x += check_speed(velocidadeProfessor, incrementoVelocidadeProfessor, pontuacao);
+            professor.x += velocidadeProfessor;
             // Limita a professor dentro da tela
             if (professor.x < 1) professor.x = 2;
             if (professor.x > SCREEN_W - PLATFORM_W - 1) professor.x = SCREEN_W - PLATFORM_W -6;
@@ -192,24 +185,31 @@ int main() {
             // Fecha a janela
             running = false;
         }
-else if (event.type == ALLEGRO_EVENT_KEY_DOWN) {
-    if (event.keyboard.keycode == ALLEGRO_KEY_LEFT) {
-        velocidadeProfessor -= incrementoVelocidadeProfessor;
+        else if (event.type == ALLEGRO_EVENT_KEY_DOWN) {
+            if (event.keyboard.keycode == ALLEGRO_KEY_LEFT) {
+                velocidadeProfessor -= incrementoVelocidadeProfessor;
+                teclaEsquerdaPressionada = true;
+                }
+                else if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
+                velocidadeProfessor += incrementoVelocidadeProfessor;
+                teclaDireitaPressionada = true;
+            }
         }
-        else if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
-        velocidadeProfessor += incrementoVelocidadeProfessor;
-    }
-}
 
-else if (event.type == ALLEGRO_EVENT_KEY_UP) {
-    if (event.keyboard.keycode == ALLEGRO_KEY_LEFT) {
-        velocidadeProfessor += incrementoVelocidadeProfessor;
+        else if (event.type == ALLEGRO_EVENT_KEY_UP) {
 
-    }  if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
-            velocidadeProfessor -=incrementoVelocidadeProfessor;
+            if (event.keyboard.keycode == ALLEGRO_KEY_LEFT) {
+                velocidadeProfessor += incrementoVelocidadeProfessor;
+                teclaEsquerdaPressionada = false;
 
-    }
-}
+            }  if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
+                    velocidadeProfessor -=incrementoVelocidadeProfessor;
+                    teclaDireitaPressionada = false;
+            }
+                if (!teclaDireitaPressionada && !teclaEsquerdaPressionada){
+                    velocidadeProfessor = 0;
+            }
+        }
 
 
 
