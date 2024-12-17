@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <locale.h>
 
 #define SCREEN_W 500
 #define SCREEN_H 600
@@ -19,6 +18,7 @@
 #define MAX_STONES 10
 #define FPS 60
 #define FONTSIZE 20
+#define FLIP_OFFSET 35
 
 typedef struct {
     float x, y;             // Posição
@@ -226,8 +226,8 @@ int main() {
         }
 
         professor.x += velocidadeProfessor;
-            // Limita a professor dentro da tela
-            if (professor.x < 1) professor.x = 2;
+            // limita o professor
+            if (professor.x < -FLIP_OFFSET) professor.x = -FLIP_OFFSET;
             if (professor.x > SCREEN_W - PROFESSOR_W - 1) professor.x = SCREEN_W - PROFESSOR_W -6;
 
         if (redraw && al_is_event_queue_empty(queue)) {
@@ -241,7 +241,7 @@ int main() {
                 al_draw_bitmap(professor.sprite, professor.x, professor.y, 0);
             }
             else {
-                al_draw_bitmap(professor.sprite, professor.x + 35, professor.y, ALLEGRO_FLIP_HORIZONTAL);
+                al_draw_bitmap(professor.sprite, professor.x + FLIP_OFFSET, professor.y, ALLEGRO_FLIP_HORIZONTAL);
             }
 
             // Desenha as pedras
