@@ -12,8 +12,8 @@
 
 #define SCREEN_W 500
 #define SCREEN_H 600
-#define PLATFORM_W 120
-#define PLATFORM_H 200
+#define PROFESSOR_W 120
+#define PROFESSOR_H 200
 #define STONE_W 30
 #define STONE_H 30
 #define MAX_STONES 10
@@ -30,20 +30,36 @@ typedef struct {
     ALLEGRO_BITMAP *sprite; // Imagem da pedra
     bool active;            // Se a pedra está ativa ou não
 } Pedra;
-
 // Funcao para verficar erros de iniciaização
-void error_h(bool test, const char *description)
-{
+void error_h(bool test, const char *description){
     if (test) return;
 
     printf("Nao foi capaz de inicializar o/a %s\n", description);
     exit(1);
 }
 
-
 bool verifica_colisao(Professor *professor, Pedra *pedra) {
-    return (professor->x < pedra->x + STONE_W && professor->x + PLATFORM_W > pedra->x &&
-            professor->y < pedra->y + STONE_H && professor->y + PLATFORM_H > pedra->y);
+    return (professor->x + 20 < pedra->x + STONE_W && professor->x + PROFESSOR_W > pedra->x &&
+            professor->y < pedra->y + STONE_H && professor->y + PROFESSOR_H > pedra->y);
+}
+
+void display_death_screen(const ALLEGRO_FONT* font, const ALLEGRO_FONT* font_2, int score) {
+    al_clear_to_color(al_map_rgb(0, 0, 0)); // Black background
+    al_draw_text(font, al_map_rgb(255, 0, 0), SCREEN_W/ 2, SCREEN_H / 3, ALLEGRO_ALIGN_CENTRE, "GAME OVER");
+    al_draw_textf(font_2, al_map_rgb(255, 255, 255), SCREEN_W / 2, SCREEN_H / 3 + 55, ALLEGRO_ALIGN_CENTRE, "FINAL SCORE: %d", score);
+    al_draw_text(font_2, al_map_rgb(255, 255, 255), SCREEN_W / 2, SCREEN_H / 3 + 85, ALLEGRO_ALIGN_CENTRE, "Press \"ESC\" to exit.");
+    al_flip_display();
+}
+// funcao para flippar o sprite do personagem
+bool last_direction(bool l, bool r, bool last){
+    bool invert = last;
+    if (l && !r){
+        invert = true;
+        }
+    else if (!l && r){
+        invert = false;
+        }
+    return invert;
 }
 
 int main() {
@@ -54,14 +70,12 @@ int main() {
     error_h(al_install_keyboard(), "Keyboard");
     error_h(al_init_image_addon(), "Image Addon");
 
-    setlocale(LC_ALL, "portuguese");
     al_init_font_addon();
     al_init_ttf_addon();
 
     ALLEGRO_DISPLAY *display = al_create_display(SCREEN_W, SCREEN_H);
     ALLEGRO_TIMER *timer = al_create_timer(1.0 / FPS);
     ALLEGRO_BITMAP *background = al_load_bitmap("imagens/bg.jpg");
-
 
     error_h(display, "Display");
     error_h(timer, "Timer");
@@ -77,11 +91,13 @@ int main() {
     ALLEGRO_SAMPLE *sompowerup = al_load_sample("imagens/powerup.wav");
 
     ALLEGRO_FONT *fonte = al_load_font("fonts/FONT.ttf", FONTSIZE, 0);
+    ALLEGRO_FONT *death_font = al_load_font("fonts/FONT.ttf", 40, 0);
 
     error_h(musica, "Musica de Fundo");
     error_h(sompedra, "som de coletar pedra");
     error_h(sompowerup, "som de pontuação atingida");
     error_h(fonte, "Fonte padrão");
+    error_h(death_font, "Fonte de Encerramento");
 
     // criação a fila de eventos
     ALLEGRO_EVENT_QUEUE *queue = al_create_event_queue();
@@ -109,34 +125,34 @@ int main() {
 
     // Variáveis principais
     bool running = true, redraw = true;
-
     float velocidadeProfessor = 0;
     float incrementoVelocidadeProfessor = 6;
     float velocidadePedra = 4;
     int pontuacao = 0;
     int pontuacaoRequerida = 10;
     float tempo_ultimo_spawn = 0; // Armazena o tempo desde o último spawn
-    bool teclaEsquerdaPressionada = false;
-    bool teclaDireitaPressionada = false;
+    bool left = false;
+    bool right= false;
+    bool last = false;
+
 
     // Inicia o timer
     al_start_timer(timer);
 
     al_play_sample(musica, 0.3, 0.0, 1.0, ALLEGRO_PLAYMODE_LOOP, NULL);
 
-
     // Loop principal
     while (running) {
         ALLEGRO_EVENT event;
         al_wait_for_event(queue, &event);
+
         if (event.type == ALLEGRO_EVENT_TIMER) {
             tempo_ultimo_spawn += 1.0 / FPS;  // Incrementa o tempo ???
 
-            // Verifica se é hora de spawnar uma nova pedra
             if (tempo_ultimo_spawn >= SPAWN_DELAY) {
                 for (int i = 0; i < MAX_STONES; i++) {
                     if (!pedras[i].active) {
-                        pedras[i].x = rand() % (SCREEN_W - STONE_W);  // Posição aleatoria
+                        pedras[i].x = rand() % (SCREEN_W - STONE_W);  // Posicão aleatoria
                         pedras[i].y = -STONE_H;  // Começa fora da tela, no topo
                         pedras[i].active = true;  // Marca como ativa
                         break; // Spawnou uma pedra, sai do loop
@@ -173,52 +189,60 @@ int main() {
                     }
                 }
             }
-
-            professor.x += velocidadeProfessor;
-            // Limita a professor dentro da tela
-            if (professor.x < 1) professor.x = 2;
-            if (professor.x > SCREEN_W - PLATFORM_W - 1) professor.x = SCREEN_W - PLATFORM_W -6;
-
             redraw = true;
         }
+
         else if (event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
-            // Fecha a janela
             running = false;
         }
+
         else if (event.type == ALLEGRO_EVENT_KEY_DOWN) {
-            if (event.keyboard.keycode == ALLEGRO_KEY_LEFT) {
+            if (event.keyboard.keycode == ALLEGRO_KEY_LEFT || event.keyboard.keycode == ALLEGRO_KEY_A) {
                 velocidadeProfessor -= incrementoVelocidadeProfessor;
-                teclaEsquerdaPressionada = true;
+                left = true;
                 }
-                else if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
+                else if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT || event.keyboard.keycode == ALLEGRO_KEY_D) {
                 velocidadeProfessor += incrementoVelocidadeProfessor;
-                teclaDireitaPressionada = true;
+                right= true;
             }
+                else if (event.keyboard.keycode == ALLEGRO_KEY_ESCAPE){
+                    running = false;
+                }
         }
 
         else if (event.type == ALLEGRO_EVENT_KEY_UP) {
 
-            if (event.keyboard.keycode == ALLEGRO_KEY_LEFT) {
+            if (event.keyboard.keycode == ALLEGRO_KEY_LEFT || event.keyboard.keycode == ALLEGRO_KEY_A) {
                 velocidadeProfessor += incrementoVelocidadeProfessor;
-                teclaEsquerdaPressionada = false;
+                left = false;
 
-            }  if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
+            }  if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT || event.keyboard.keycode == ALLEGRO_KEY_D) {
                     velocidadeProfessor -=incrementoVelocidadeProfessor;
-                    teclaDireitaPressionada = false;
+                    right= false;
             }
-                if (!teclaDireitaPressionada && !teclaEsquerdaPressionada){
+                if (!right&& !left){
                     velocidadeProfessor = 0;
             }
         }
 
-
+        professor.x += velocidadeProfessor;
+            // Limita a professor dentro da tela
+            if (professor.x < 1) professor.x = 2;
+            if (professor.x > SCREEN_W - PROFESSOR_W - 1) professor.x = SCREEN_W - PROFESSOR_W -6;
 
         if (redraw && al_is_event_queue_empty(queue)) {
 
             redraw = false;
 
             al_draw_bitmap(background, 0, 0, 0);
-            al_draw_bitmap(professor.sprite, professor.x, professor.y, 0);
+
+            last = last_direction(left, right, last);
+            if (last == false){
+                al_draw_bitmap(professor.sprite, professor.x, professor.y, 0);
+            }
+            else {
+                al_draw_bitmap(professor.sprite, professor.x + 35, professor.y, ALLEGRO_FLIP_HORIZONTAL);
+            }
 
             // Desenha as pedras
             for (int i = 0; i < MAX_STONES; i++) {
@@ -226,24 +250,34 @@ int main() {
                     al_draw_bitmap(pedras[i].sprite, pedras[i].x, pedras[i].y, 0);
                 }
             }
-            // desenha texto
+
             al_draw_textf(fonte, al_map_rgb(255, 255, 255), 10, 10, 0, "SCORE: %d", pontuacao);
 
             al_flip_display(); // ATUALIZA A TELA
         }
     }
+    al_destroy_sample(musica);
+    while (true) {
+        ALLEGRO_EVENT event;
+        al_wait_for_event(queue, &event);
+        display_death_screen(death_font,fonte, pontuacao);
+        if (event.type)
+            if (event.keyboard.keycode == ALLEGRO_KEY_ESCAPE){
+                break;
+        }
+    };
 
     al_destroy_bitmap(professor.sprite);
-    al_destroy_sample(musica);
-    al_uninstall_audio();
     for (int i = 0; i < MAX_STONES; i++) {
         al_destroy_bitmap(pedras[i].sprite);
     }
     al_destroy_bitmap(background);
     al_destroy_font(fonte);
+    al_destroy_font(death_font);
+    al_destroy_sample(musica);
+    al_uninstall_audio();
     al_destroy_display(display);
     al_destroy_timer(timer);
     al_destroy_event_queue(queue);
-    printf("SCORE: %d", pontuacao);
     return 0;
 }
